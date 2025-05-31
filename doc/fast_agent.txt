@@ -1,0 +1,151 @@
+" File: ~/.config/nvim/pack/plugins/start/fast-agent.nvim/doc/fast_agent.txt
+"============================================================================== 
+" Plugin: fast-agent.nvim
+"============================================================================== 
+"                        *fast_agent.txt*    ~/.config/nvim/pack/plugins/start/fast-agent.nvim/doc/fast_agent.txt
+"
+" quick summary:
+"   fast_agent.lua is a Neovim plugin that lets you chat with an OpenAI Chat endpoint
+"   without leaving your editor.  It maintains conversation threads, lets you open
+"   a floating prompt, send messages, and fetch/append responses to files.
+"
+" Table of Contents                                        *fast_agent-toc* 
+"   1.  Dependencies                                       *fast_agent-deps*
+"   2.  Installation                                       *fast_agent-install*
+"   3.  Configuration                                      *fast_agent-config*
+"   4.  API Functions                                      *fast_agent-functions*
+"       -> setup(opts)                                     *fast_agent-setup*
+"       -> open_prompt(opts)                               *fast_agent-open-prompt*
+"       -> send_text(text, opts)                           *fast_agent-send-text*
+"       -> list_conversations()                            *fast_agent-list-convos*
+"       -> set_current_conversation(id)                    *fast_agent-set-current*
+"       -> get_current_conversation_id()                   *fast_agent-get-current*
+"       -> get_response(id, callback)                      *fast_agent-get-response*
+"       -> append_to_file(path, text)                      *fast_agent-append*
+"   5.  Ex Commands                                        *fast_agent-commands*
+"       :FastAgentPrompt                                   *FastAgentPrompt*
+"       :FastAgentList                                     *FastAgentList*
+"       :FastAgentSwitch <id>                              *FastAgentSwitch*
+"       :FastAgentFetch                                    *FastAgentFetch*
+"       :FastAgentAppend <filepath>                        *FastAgentAppend*
+"
+"==============================================================================
+" 1. Dependencies                                              *fast_agent-deps*
+"------------------------------------------------------------------------------
+"   1. plenary.nvim     (for plenary.job, plenary.uuid, plenary.path)
+"   2. Valid OPENAI_API_KEY environment variable
+"   3. curl (in your $PATH) to do HTTP POST; you can modify to use any HTTP lib.
+"
+"==============================================================================
+" 2. Installation                                              *fast_agent-install*
+"------------------------------------------------------------------------------
+"   In your plugin manager (lazy.nvim, packer.nvim, etc.), install:
+"       'nvim-lua/plenary.nvim'
+"       'gavinw2143/fast-agent.nvim'
+"
+"   Then run:
+"       :helptags ALL
+"
+"==============================================================================
+" 3. Configuration                                             *fast_agent-config*
+"------------------------------------------------------------------------------
+"   In your init.lua (or plugin setup file), do:
+"
+"     require('fast_agent').setup({
+"       api_key  = vim.fn.getenv('OPENAI_API_KEY'),  "— or pass directly
+"       model    = 'gpt-4o-mini',                    "— default is 'gpt-3.5-turbo'
+"       endpoint = 'https://api.openai.com/v1/chat/completions',
+"       cache_dir = vim.fn.stdpath('data') .. '/fast_agent',
+"     })
+"
+"   If you do not call setup(), default values are used (OPENAI_API_KEY from env, etc.).
+"
+"==============================================================================
+" 4. API Functions                                             *fast_agent-functions*
+"------------------------------------------------------------------------------
+
+" . setup(opts)                                              *fast_agent-setup*
+"     ─────────────────────────────────────────────────────────────────────
+"     Initialize the plugin.  Call this once *after* loading fast_agent.lua.
+"     opts (table) may contain:
+"       • api_key   = <string> (OPENAI_API_KEY)
+"       • model     = <string> (e.g. 'gpt-3.5-turbo')
+"       • endpoint  = <string> (URL of chat completions endpoint)
+"       • cache_dir = <string> (directory where JSON state is stored)
+"
+" . open_prompt(opts)                                        *fast_agent-open-prompt*
+"     ─────────────────────────────────────────────────────────────────────
+"     Opens a floating prompt window.  opts (table) may contain:
+"       • title     = <string>  (floating window title; default: “FastAgent: Enter your prompt”)
+"       • on_submit = function(text, conversation_id)
+"                       end
+"                     (called when user presses <Enter> with buffer contents)
+"       • width     = <number> (float width in columns; default: ~60% of editor width)
+"       • height    = <number> (float height in lines; default: 3)
+"
+" . send_text(text, opts)                                    *fast_agent-send-text*
+"     ─────────────────────────────────────────────────────────────────────
+"     Enqueue a “user” message under a conversation.  opts (table) may contain:
+"       • conversation = <string> (if you want to send to a specific convo ID)
+"     If no conversation is specified (and none is “current”), a new one is created.
+"     Returns the conversation ID.  (Does NOT call the API; just stores the user text.)
+"
+" . list_conversations()                                     *fast_agent-list-convos*
+"     ─────────────────────────────────────────────────────────────────────
+"     Returns a Lua list (array) of tables:
+"       { { id = <string>, name = <string>, last_updated = <timestamp> }, … }
+"     Sorted by last_updated descending.
+"
+" . set_current_conversation(id)                             *fast_agent-set-current*
+"     ─────────────────────────────────────────────────────────────────────
+"     Make the conversation with ID = <id> become “current.”  Future 
+"     send_text() calls will go there (unless you override with opts.conversation).
+"     Persists state to disk.
+"
+" . get_current_conversation_id()                            *fast_agent-get-current*
+"     ─────────────────────────────────────────────────────────────────────
+"     Returns the currently active conversation’s ID (string) or nil.
+"
+" . get_response(id, callback)                               *fast_agent-get-response*
+"     ─────────────────────────────────────────────────────────────────────
+"     Performs an asynchronous HTTP POST to the configured `endpoint` with 
+"     all messages in conversation `<id>`.  Once the response arrives, appends 
+"     the assistant’s reply to that conversation, persists state, and then 
+"     invokes `callback(response_text)`.  
+"
+" . append_to_file(path, text)                                *fast_agent-append*
+"     ─────────────────────────────────────────────────────────────────────
+"     Expand `path` (handles `~`) and append `text .. "\n\n"` to it.
+"     Creates parent directories if needed.
+"
+"==============================================================================
+" 5. Ex-Commands                                                 *fast_agent-commands*
+"------------------------------------------------------------------------------
+
+" :FastAgentPrompt                                            *FastAgentPrompt*
+"     ─────────────────────────────────────────────────────────────────────
+"     Opens the floating prompt.  When you <Enter>, it enqueues your text 
+"     under the “current” conversation (or creates a new one).  
+"
+" :FastAgentList                                              *FastAgentList*
+"     ─────────────────────────────────────────────────────────────────────
+"     Prints a table of all conversations (ID │ name │ last_updated).  
+"
+" :FastAgentSwitch <id>                                       *FastAgentSwitch*
+"     ─────────────────────────────────────────────────────────────────────
+"     Sets the conversation with the given <id> to be “current.”
+"
+" :FastAgentFetch                                             *FastAgentFetch*
+"     ─────────────────────────────────────────────────────────────────────
+"     Calls get_response() on the “current” conversation.  When the 
+"     assistant’s reply arrives, a new scratch split opens with the text.  
+"
+" :FastAgentAppend <filepath>                                 *FastAgentAppend*
+"     ─────────────────────────────────────────────────────────────────────
+"     Finds the last assistant message in the “current” conversation 
+"     and appends it to `<filepath>`.  
+"
+"============================================================================== 
+" For more details or to contribute, see the GitHub repo.  
+"============================================================================== 
+
