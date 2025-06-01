@@ -20,6 +20,7 @@ local user_config    = {}
 local state          = {
 	conversations = {},
 	current       = nil,
+	last_input    = "",
 }
 
 --
@@ -74,6 +75,10 @@ function M.setup(opts)
 	-- Merge opts over defaults
 	user_config = vim.tbl_deep_extend("force", {}, default_config, opts or {})
 
+	if user_config.use_default_keymaps and user_config.use_default_keymaps == true then
+		M._install_default_keymaps()
+	end
+
 	-- If no API key was passed in opts, must rely on env var
 	if user_config.api_key == "" then
 		vim.notify(
@@ -88,7 +93,7 @@ function M.setup(opts)
 end
 
 local function generate_id()
-	local random = vim.loop.hrtime() -- a high-resolution timestamp
+	local random = uv.hrtime() -- a high-resolution timestamp
 	local rand_str = tostring(math.random(0, 2 ^ 31))
 	return tostring(random) .. "_" .. rand_str
 end
@@ -142,6 +147,15 @@ end
 -- Get the current conversation ID (or nil)
 function M.get_current_conversation_id()
 	return state.current
+end
+
+function M._get_internal_state()
+	local out = {
+		conversations = state.conversations,
+		current = state.current,
+		last_input = state.last_input,
+	}
+	return out
 end
 
 --
@@ -398,6 +412,17 @@ function M._handle_submit(buf, win)
 	end
 	-- Clear the stored pending prompt
 	M._pending_prompt = nil
+end
+
+-- When user calls setup with `use_default_keymaps = true`, install default maps
+function M._install_default_keymaps()
+	-- only set these if they do not exist already
+	local opts = { noremap = true, silent = true }
+	vim.keymap.set("n", "<leader>gp", "<Cmd>FastAgentPrompt<CR>", opts)
+	vim.keymap.set("n", "<leader>gl", "<Cmd>FastAgentList<CR>", opts)
+	vim.keymap.set("n", "<leader>gs", "<Cmd>FastAgentSwitch<CR>", opts)
+	vim.keymap.set("n", "<leader>gr", "<Cmd>FastAgentFetch<CR>", opts)
+	vim.keymap.set("n", "<leader>ga", "<Cmd>FastAgentAppend<CR>", { noremap = true })
 end
 
 return M
