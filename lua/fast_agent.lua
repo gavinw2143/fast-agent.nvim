@@ -102,7 +102,7 @@ end
 --
 
 -- Create a brand-new conversation, return its generated ID
-local function create_new_conversation()
+function M.create_new_conversation()
 	-- Use plenary.uuid to generate a random UUID
 	local c_id = generate_id()
 	local timestamp = os.time()
@@ -141,6 +141,19 @@ function M.set_current_conversation(c_id)
 		return
 	end
 	state.current = c_id
+	save_state_to_disk()
+end
+
+-- Delete conversation by id; must already exist
+function M.delete_conversation(c_id)
+	if state.conversations[c_id] == nil then
+		vim.notify(string.format(
+			"[fast_agent.nvim] Error: conversation '%s' does not exist.", c_id
+		), vim.log.levels.ERROR)
+		return
+	end
+	state.conversations[c_id] = nil
+	state.current = nil
 	save_state_to_disk()
 end
 

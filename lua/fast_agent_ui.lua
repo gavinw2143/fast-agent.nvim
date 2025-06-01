@@ -5,11 +5,6 @@ local M = {}
 -- Grab the “core” FastAgent module
 local fast = require("fast_agent")
 
--- Utility: compute absolute sizes
-local function pct(x, total)
-	return math.floor(x * total)
-end
-
 -- ----------------------------------------------------------------------------
 -- Populate the “conversation list” buffer on the left
 -- ----------------------------------------------------------------------------
@@ -52,9 +47,7 @@ local function refresh_message_history(bufnr)
 
 	local lines = {}
 	for _, msg in ipairs(convo.messages) do
-		-- Decide on the prefix
 		local prefix = (msg.role == "user") and "> " or ":: "
-		-- Split the content on actual newline characters
 		local content_lines = vim.split(msg.content, "\n")
 
 		for i, cl in ipairs(content_lines) do
@@ -89,96 +82,150 @@ end
 -- ----------------------------------------------------------------------------
 -- Open the “FastAgent Home” tabpage
 -- ----------------------------------------------------------------------------
-function M.open_home_panel()
-	-- 1) Create a new tab
-	vim.cmd("tabnew")
+function M.toggle_home_panel()
+	-- If it already exists, close everything and clear state
+	if M.win_convos and vim.api.nvim_win_is_valid(M.win_convos) then
+		-- Close prompt first, then history, then convos
+		if M.win_input and vim.api.nvim_win_is_valid(M.win_input) then
+			vim.api.nvim_win_close(M.win_input, true)
+		end
+		if M.win_history and vim.api.nvim_win_is_valid(M.win_history) then
+			vim.api.nvim_win_close(M.win_history, true)
+		end
+		if M.win_convos and vim.api.nvim_win_is_valid(M.win_convos) then
+			vim.api.nvim_win_close(M.win_convos, true)
+		end
 
-	-- Get absolute UI dimensions (ignore cmdheight & listchars space)
-	local total_cols = vim.o.columns
-	local total_lines = vim.o.lines
+		-- Clear stored handles
+		M.win_convos = nil
+		M.buf_convos = nil
+		M.win_history = nil
+		M.buf_history = nil
+		M.win_input = nil
+		M.buf_input = nil
+		return
+	end
 
-	-- 2) Vertical split: left = 20%, right = 80%
-	local left_w = pct(0.20, total_cols)
-	vim.cmd("vertical split")
-	vim.cmd("vertical resize " .. left_w)
+	-- Otherwise, create three floating windows side by side/in a column split
+	local cols       = vim.o.columns
+	local lines      = vim.o.lines
 
-	--------------------------------------------------------------------------------
-	-- 3) Setup the LEFT buffer as the “conversation list”
-	--------------------------------------------------------------------------------
-	local left_buf = vim.api.nvim_get_current_buf()
-	vim.api.nvim_buf_set_name(left_buf, "FastAgentConvos")
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = left_buf })
-	vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = left_buf })
-	vim.api.nvim_set_option_value("swapfile", false, { buf = left_buf })
-	vim.api.nvim_set_option_value("modifiable", false, { buf = left_buf })
-	vim.api.nvim_set_option_value("filetype", "markdown", { buf = left_buf })
+	-- Dimensions:
+	local conv_w     = math.floor(cols * 0.20)
+	local right_w    = cols - conv_w
+	local hist_h     = math.floor(lines * 0.80)
+	local prompt_h   = lines - hist_h
 
-	-- Immediately fill it
-	refresh_conversation_list(left_buf)
+	local buf_convos = vim.api.nvim_create_buf(false, true)
+	if vim.fn.bufnr(buf_convos) == -1 then
+		vim.api.nvim_buf_set_name(buf_convos, "FastAgentConvos")
+	end
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf_convos })
+	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buf_convos })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = buf_convos })
+	vim.api.nvim_set_option_value("modifiable", false, { buf = buf_convos })
+	vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf_convos })
+
+	local win_convos = vim.api.nvim_open_win(buf_convos, true, {
+		relative = "editor",
+		row      = math.floor(lines * 0.05),
+		col      = math.floor(cols * 0.05),
+		width    = math.floor(conv_w * 0.90),
+		height   = math.floor(lines * 0.90),
+		style    = "minimal",
+		border   = "rounded",
+	})
 
 	-- Map <CR> in this buffer to switch conversation
 	vim.api.nvim_buf_set_keymap(
-		left_buf, "n", "<CR>",
+		buf_convos, "n", "<CR>",
 		[[<Cmd>lua require("fast_agent_ui")._select_conversation()<CR>]],
 		{ noremap = true, silent = true }
 	)
+	-- Map `n` to "new conversation"
+	vim.api.nvim_buf_set_keymap(
+		buf_convos, "n", "n",
+		[[<Cmd>lua require("fast_agent_ui")._create_conversation()<CR>]],
+		{ noremap = true, silent = true }
+	)
+	-- Map `d` to “delete conversation under cursor”
+	vim.api.nvim_buf_set_keymap(
+		buf_convos, "n", "d",
+		[[<Cmd>lua require("fast_agent_ui")._delete_conversation()<CR>]],
+		{ noremap = true, silent = true }
+	)
 
-	-- 4) Move to the RIGHT window
-	vim.cmd("wincmd l")
+	local buf_history = vim.api.nvim_create_buf(false, true)
+	if vim.fn.bufnr(buf_history) == -1 then
+		vim.api.nvim_buf_set_name(buf_history, "FastAgentHistory")
+	end
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf_history })
+	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buf_history })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = buf_history })
+	vim.api.nvim_set_option_value("modifiable", false, { buf = buf_history })
+	vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf_history })
 
-	--------------------------------------------------------------------------------
-	-- 5) Horizontal split in the RIGHT window: bottom = 20%, top = 80%
-	--------------------------------------------------------------------------------
-	local msg_w = pct(0.80, total_lines) -- width is implicit when splitting
-	vim.cmd("horizontal split")
-	vim.cmd("resize " .. msg_w)
 
-	--------------------------------------------------------------------------------
-	-- 6) Setup the BOTTOM-RIGHT buffer as the “prompt” (FastAgent input)
-	--------------------------------------------------------------------------------
-	vim.cmd("wincmd j")
-	local prompt_buf = vim.api.nvim_get_current_buf()
-	vim.api.nvim_buf_set_name(prompt_buf, "FastAgentInput")
-	vim.api.nvim_set_option_value("buftype", "prompt", { buf = prompt_buf })
-	vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = prompt_buf })
-	vim.api.nvim_set_option_value("swapfile", false, { buf = prompt_buf })
-	vim.fn.prompt_setprompt(prompt_buf, "> ")
+	local win_history = vim.api.nvim_open_win(buf_history, false, {
+		relative = "editor",
+		row      = math.floor(lines * 0.05),
+		col      = math.floor(conv_w * 1.05),
+		width    = math.floor(right_w * 0.90),
+		height   = math.floor(hist_h * 0.90),
+		style    = "minimal",
+		border   = "rounded",
+	})
+
+	local buf_input = vim.api.nvim_create_buf(false, true)
+	if vim.fn.bufnr(buf_input) == -1 then
+		vim.api.nvim_buf_set_name(buf_input, "FastAgentInput")
+	end
+	vim.api.nvim_set_option_value("buftype", "prompt", { buf = buf_input })
+	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buf_input })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = buf_input })
+	vim.fn.prompt_setprompt(buf_input, "> ")
+
+	local win_input = vim.api.nvim_open_win(buf_input, false, {
+		relative = "editor",
+		row      = math.floor(hist_h * 1.05),
+		col      = math.floor(conv_w * 1.05),
+		width    = math.floor(right_w * 0.90),
+		height   = math.floor(prompt_h * 0.90),
+		style    = "minimal",
+		border   = "rounded",
+	})
 
 	-- When <CR> is pressed in this prompt, send to FastAgent and refresh history
 	vim.api.nvim_buf_set_keymap(
-		prompt_buf, "i", "<CR>",
+		buf_input, "i", "<CR>",
 		[[<C-\><C-n><Cmd>lua require("fast_agent_ui")._submit_prompt()<CR>]],
 		{ noremap = true, silent = true }
 	)
-	-- <Esc> should just close the prompt buffer
+	-- Map <Esc> in prompt to just clear it
 	vim.api.nvim_buf_set_keymap(
-		prompt_buf, "n", "<Esc>",
-		"<Cmd>bd!<CR>",
+		buf_input, "n", "<Esc>",
+		[[<Cmd>lua vim.api.nvim_buf_set_option(0, "modifiable", true) |
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {}) |
+      vim.api.nvim_buf_set_option(0, "modifiable", false) |
+      vim.cmd("startinsert")<CR>]],
 		{ noremap = true, silent = true }
 	)
 
-	-- Enter insert mode immediately
+	-- Populate both convo list and history right away
+	refresh_conversation_list(buf_convos)
+	refresh_message_history(buf_history)
+
+	-- Store handles so we know how to close them later
+	M.win_convos  = win_convos
+	M.buf_convos  = buf_convos
+	M.win_history = win_history
+	M.buf_history = buf_history
+	M.win_input   = win_input
+	M.buf_input   = buf_input
+
+	-- Finally, put the cursor into the prompt buffer and start insert mode
+	vim.api.nvim_set_current_win(win_input)
 	vim.cmd("startinsert")
-
-	--------------------------------------------------------------------------------
-	-- 7) Move UP to set up the TOP-RIGHT buffer as “message history”
-	--------------------------------------------------------------------------------
-	vim.cmd("wincmd k")
-	local msg_buf = vim.api.nvim_get_current_buf()
-	vim.api.nvim_buf_set_name(msg_buf, "FastAgentHistory")
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = msg_buf })
-	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = msg_buf })
-	vim.api.nvim_set_option_value("swapfile", false, { buf = msg_buf })
-	vim.api.nvim_set_option_value("modifiable", false, { buf = msg_buf })
-	vim.api.nvim_set_option_value("filetype", "markdown", { buf = msg_buf })
-
-	-- Fill it once at startup
-	refresh_message_history(msg_buf)
-
-	--------------------------------------------------------------------------------
-	-- 8) Now move the cursor back into the INPUT buffer (bottom-right)
-	--------------------------------------------------------------------------------
-	vim.cmd("wincmd j")
 end
 
 -- ----------------------------------------------------------------------------
@@ -189,15 +236,6 @@ function M._submit_prompt()
 	local prompt_buf = vim.api.nvim_get_current_buf()
 	local lines = vim.api.nvim_buf_get_lines(prompt_buf, 0, -1, false)
 	local input_text = table.concat(lines, "\n")
-
-	-- Close the prompt buffer & window
-	local prompt_win = vim.fn.bufwinid(prompt_buf)
-	if prompt_win ~= -1 then
-		vim.api.nvim_win_close(prompt_win, true)
-	end
-	if vim.api.nvim_buf_is_valid(prompt_buf) then
-		vim.api.nvim_buf_delete(prompt_buf, { force = true })
-	end
 
 	if input_text == "" then
 		vim.notify("[fast_agent.nvim] Please type something before submitting.", vim.log.levels.WARN)
@@ -226,21 +264,29 @@ function M._submit_prompt()
 			end
 
 			-- Also refresh the LEFT list again (last_updated changed)
-			local left_buf = vim.fn.bufnr("FastAgentConvos")
-			if left_buf ~= -1 then
-				refresh_conversation_list(left_buf)
+			local buf_convos = vim.fn.bufnr("FastAgentConvos")
+			if buf_convos ~= -1 then
+				refresh_conversation_list(buf_convos)
 			end
 		end)
 	end)
+
+	vim.api.nvim_buf_set_lines(prompt_buf, 0, -1, false, {}) -- clear every line
+
+	local prompt_win = vim.fn.bufwinid(prompt_buf)
+	if prompt_win ~= -1 then
+		vim.api.nvim_set_current_win(prompt_win)
+		vim.cmd("startinsert")
+	end
 end
 
 -- ----------------------------------------------------------------------------
 -- Called when user hits <CR> in the “conversation list” buffer
 -- ----------------------------------------------------------------------------
 function M._select_conversation()
-	local left_buf = vim.api.nvim_get_current_buf()
+	local buf_convos = vim.api.nvim_get_current_buf()
 	local cursor_pos = vim.api.nvim_win_get_cursor(0)[1] -- 1-based line number
-	local line = vim.api.nvim_buf_get_lines(left_buf, cursor_pos - 1, cursor_pos, false)[1]
+	local line = vim.api.nvim_buf_get_lines(buf_convos, cursor_pos - 1, cursor_pos, false)[1]
 	if not line or line:match("^%[No") then
 		return
 	end
@@ -261,11 +307,111 @@ function M._select_conversation()
 			end
 
 			-- Also update timestamp in the list
-			refresh_conversation_list(left_buf)
+			refresh_conversation_list(buf_convos)
 			return
 		end
 	end
 	vim.notify("[fast_agent.nvim] Could not find conversation for line: " .. line, vim.log.levels.ERROR)
+end
+
+-- ----------------------------------------------------------------------------
+-- Create a new conversation (prompt for a name, then refresh)
+-- ----------------------------------------------------------------------------
+function M._create_conversation()
+	-- Prompt the user for a conversation name
+	vim.ui.input({ prompt = "New conversation name: " }, function(input)
+		if not input or input:match("^%s*$") then
+			vim.notify("[fast_agent.nvim] Aborted: no name given.", vim.log.levels.WARN)
+			return
+		end
+
+		-- Assume `fast.create_conversation(name)` returns the new convo’s full ID.
+		-- (If your core module uses a different API, adjust accordingly.)
+		local c_id = fast.create_new_conversation()
+
+		-- Immediately switch into that new conversation:
+		fast.set_current_conversation(c_id)
+
+		-- Refresh the left‐pane list and the right‐pane history:
+		local buf_convos = vim.fn.bufnr("FastAgentConvos")
+		if buf_convos ~= -1 then
+			refresh_conversation_list(buf_convos)
+		end
+
+		local hist_buf = vim.fn.bufnr("FastAgentHistory")
+		if hist_buf ~= -1 then
+			refresh_message_history(hist_buf)
+		end
+
+		vim.notify(string.format(
+			"[fast_agent.nvim] Created conversation “%s” (%s).",
+			input, c_id
+		), vim.log.levels.INFO)
+	end)
+end
+
+-- ----------------------------------------------------------------------------
+-- Delete the conversation under the cursor (with confirmation)
+-- ----------------------------------------------------------------------------
+function M._delete_conversation()
+	local buf_convos = vim.api.nvim_get_current_buf()
+	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+	local line = vim.api.nvim_buf_get_lines(buf_convos, cursor_line - 1, cursor_line, false)[1]
+
+	if not line or line:match("^%[No") then
+		vim.notify("[fast_agent.nvim] No conversation here to delete.", vim.log.levels.WARN)
+		return
+	end
+
+	-- Extract the 8-char “short ID” from the start of the line:
+	local short_id = line:sub(1, 8)
+
+	-- Look up the full ID in core’s in-memory state:
+	local state = fast._get_internal_state()
+	local full_id_to_delete = nil
+	local name_to_delete = nil
+
+	for full_id, info in pairs(state.conversations) do
+		if full_id:sub(1, 8) == short_id then
+			full_id_to_delete = full_id
+			name_to_delete = info.name
+			break
+		end
+	end
+
+	if not full_id_to_delete then
+		vim.notify("[fast_agent.nvim] Could not map “" .. short_id .. "” to a conversation.", vim.log.levels.ERROR)
+		return
+	end
+
+	-- Ask for confirmation before actually deleting:
+	vim.ui.select(
+		{ "Yes", "No" },
+		{ prompt = string.format("Delete “%s” (%s)?", name_to_delete, short_id) },
+		function(choice)
+			if choice ~= "Yes" then
+				vim.notify("[fast_agent.nvim] Deletion cancelled.", vim.log.levels.INFO)
+				return
+			end
+
+			-- Assume `fast.delete_conversation(id)` actually removes it from core:
+			fast.delete_conversation(full_id_to_delete)
+
+			-- Refresh the left list:
+			refresh_conversation_list(buf_convos)
+
+			-- If the history buffer was showing this deleted convo, clear it to say “[No active conversation]”:
+			local hist_buf = vim.fn.bufnr("FastAgentHistory")
+			if hist_buf ~= -1 then
+				refresh_message_history(hist_buf)
+			end
+
+			vim.notify(string.format(
+				"[fast_agent.nvim] Deleted conversation “%s” (%s).",
+				name_to_delete, short_id
+			), vim.log.levels.INFO)
+		end
+	)
 end
 
 -- ----------------------------------------------------------------------------
@@ -274,7 +420,7 @@ end
 vim.api.nvim_set_keymap(
 	"n",
 	"<Space>gh",
-	"<Cmd>lua require('fast_agent_ui').open_home_panel()<CR>",
+	"<Cmd>lua require('fast_agent_ui').toggle_home_panel()<CR>",
 	{ noremap = true, silent = true }
 )
 
