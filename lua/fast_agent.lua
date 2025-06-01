@@ -1,4 +1,3 @@
-local vim            = vim
 local uv             = vim.loop
 local Job            = require("plenary.job")
 local Path           = require("plenary.path")
