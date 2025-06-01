@@ -1,13 +1,16 @@
--- File: ~/.config/nvim/pack/plugins/start/fast-agent.nvim/plugin/fast_agent.lua
 -- This is automatically sourced at startup.
 
 -- Convenience alias
 local fast = require("fast_agent")
 
+local state = {
+	last_input = ""
+}
+
 -- 1) Open a new floating prompt:
 vim.api.nvim_create_user_command("FastAgentPrompt", function(_)
 	fast.open_prompt({
-		title = "FastAgent ⇢ Type your prompt:",
+		title = "FastAgent",
 		on_submit = function(input, convo_id)
 			-- For convenience, immediately queue up the API call in the background,
 			-- then notify the user that the request was registered.
@@ -17,9 +20,9 @@ vim.api.nvim_create_user_command("FastAgentPrompt", function(_)
 			vim.notify(msg, vim.log.levels.INFO)
 			-- Optionally: auto‐call get_response so the user doesn’t have to do it manually.
 			--
-			-- fast.get_response(convo_id, function(response_text)
-			--   vim.notify("[fast_agent.nvim] Got response: " .. vim.inspect(response_text), vim.log.levels.INFO)
-			-- end)
+			fast.get_response(convo_id, function(response_text)
+				vim.notify("[fast_agent.nvim] Got response: " .. vim.inspect(response_text), vim.log.levels.INFO)
+			end)
 		end,
 	})
 end, { desc = "FastAgent: Open floating prompt" })
