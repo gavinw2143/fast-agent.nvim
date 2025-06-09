@@ -184,10 +184,10 @@ function M.send_text(text, opts)
 	opts = opts or {}
 	local c_id = opts.conversation or state.current
 	if not c_id then
-		c_id = create_new_conversation()
+		c_id = M.create_new_conversation()
 	end
 	if state.conversations[c_id] == nil then
-		c_id = create_new_conversation()
+		c_id = M.create_new_conversation()
 	end
 
 	-- Append user message
@@ -406,7 +406,7 @@ function M._handle_submit(buf, win)
 	-- Determine which conversation to send to (or create new)
 	local c_id = state.current
 	if not c_id then
-		c_id = create_new_conversation()
+		c_id = M.create_new_conversation()
 	end
 
 	-- Enqueue user message
