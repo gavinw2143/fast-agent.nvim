@@ -144,6 +144,18 @@
 "     ─────────────────────────────────────────────────────────────────────
 "     Finds the last assistant message in the “current” conversation 
 "     and appends it to `<filepath>`.  
+
+==============================================================================
+6. Tests                                                      *fast_agent-tests*
+------------------------------------------------------------------------------
+To run the plugin's automated tests you need the |busted| framework
+available in your $PATH.  From the repository root directory simply run:
+
+    busted
+
+This will execute all spec files under |tests/| and report the results.
+
+==============================================================================
 "
 "============================================================================== 
 " For more details or to contribute, see the GitHub repo.  
