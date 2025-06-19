@@ -1,0 +1,19 @@
+# Runtime files
+*.log
+*.tmp
+
+# Local configuration
+.env
+
+# LuaRocks and dependencies
+.rocks/
+luarocks/
+
+# Neovim plugin dependencies
+site/
+
+# macOS
+.DS_Store
+
+# Node and other modules
+node_modules/

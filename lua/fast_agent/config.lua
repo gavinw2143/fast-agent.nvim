@@ -6,6 +6,7 @@ local default_config = {
   endpoint  = "https://api.openai.com/v1/responses",
   cache_dir = vim.fn.stdpath("data") .. "/fast_agent",
   json_file = "nodes.json",
+  use_default_keymaps = true,
 }
 
 local user_config = {}
