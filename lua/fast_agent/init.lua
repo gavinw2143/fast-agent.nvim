@@ -14,7 +14,7 @@ M.list_conversations = state.list_conversations
 M.set_current_conversation = state.set_current_conversation
 M.delete_conversation = state.delete_conversation
 M.get_current_conversation_id = state.get_current_conversation_id
-M.get_internal_state = state.get_internal_state
+M.get_state = state.get_state
 
 M.send_text = state.send_text
 M.get_response = network.get_response
@@ -23,4 +23,3 @@ M.append_to_file = utils.append_to_file
 M._install_default_keymaps = keymaps.install_default_keymaps
 
 return M
-

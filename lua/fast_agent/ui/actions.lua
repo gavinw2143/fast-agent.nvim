@@ -78,7 +78,7 @@ function M.delete_conversation()
 	end
 
 	local short_id = line:sub(1, 8)
-	local state = fast.get_internal_state()
+	local state = fast.get_state()
 	local full_id, name
 	for id, info in pairs(state.conversations) do
 		if id:sub(1, 8) == short_id then
