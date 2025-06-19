@@ -2,7 +2,6 @@ local config = require("fast_agent.config")
 local state = require("fast_agent.state")
 local network = require("fast_agent.network")
 local utils = require("fast_agent.utils")
-local prompt = require("fast_agent.prompt")
 local keymaps = require("fast_agent.keymaps")
 
 local M = {}
@@ -21,9 +20,7 @@ M.send_text = state.send_text
 M.get_response = network.get_response
 M.append_to_file = utils.append_to_file
 
-M.open_prompt = prompt.open_prompt
-M._handle_submit = prompt._handle_submit
-
 M._install_default_keymaps = keymaps.install_default_keymaps
 
 return M
+
