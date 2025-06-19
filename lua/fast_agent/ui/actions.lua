@@ -15,7 +15,7 @@ function M.select_conversation()
 	end
 
 	local short_id = line:sub(1, 8)
-	local state = fast.get_internal_state()
+	local state = fast.get_state()
 	for full_id, info in pairs(state.conversations) do
 		if full_id:sub(1, 8) == short_id then
 			fast.set_current_conversation(full_id)
@@ -168,4 +168,3 @@ function M.submit_prompt()
 end
 
 return M
-
