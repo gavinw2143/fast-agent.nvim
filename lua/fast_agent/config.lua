@@ -22,9 +22,6 @@ end
 function M.setup(opts)
   user_config = vim.tbl_deep_extend("force", {}, default_config, opts or {})
 
-  if user_config.use_default_keymaps then
-    require("fast_agent.keymaps").install_default_keymaps()
-  end
 
   if user_config.api_key == "" then
     vim.notify(
@@ -32,9 +29,6 @@ function M.setup(opts)
       vim.log.levels.WARN
     )
   end
-
-  require("fast_agent.state").ensure_cache_dir()
-  require("fast_agent.state").load_state()
 end
 
 return M

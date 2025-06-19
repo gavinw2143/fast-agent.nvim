@@ -28,8 +28,38 @@
 ---@field conversations window.Conversation[]
 ---@field current_id string
 
-local fast = require("fast_agent")
+---@class FastAgentUIApi
+---@field list_conversations fun(): table[]             # history listing
+---@field get_state fun(): table                        # raw state table
+---@field create_new_conversation fun(): string         # start a new conversation
+---@field set_current_conversation fun(c_id: string)    # switch active conversation
+---@field delete_conversation fun(c_id: string)         # delete conversation
+---@field send_text fun(text: string): string           # add user message & save
+---@field get_response fun(c_id: string, callback: fun(string))
+---@field append_to_file fun(filepath: string, text: string)
+
 local M = {}
+local api
+
+--- Initialize the UI module with exactly the methods it needs.
+--- @param ag FastAgentUIApi
+function M.setup_ui(ag)
+  local required = {
+    "list_conversations",
+    "get_state",
+    "create_new_conversation",
+    "set_current_conversation",
+    "delete_conversation",
+    "send_text",
+    "get_response",
+    "append_to_file",
+  }
+  for _, fn in ipairs(required) do
+    assert(type(ag[fn]) == "function",
+           string.format("fast_agent.ui.window: missing API method '%s'", fn))
+  end
+  api = ag
+end
 local home_menu_state = {}
 
 local buf_is_valid = vim.api.nvim_buf_is_valid
@@ -123,8 +153,8 @@ function M.toggle_home_menu()
 	home_menu_state.input        = input
 
 	-- populate history buffer with conversation scopes (cwd)
-	local state_tbl              = fast.get_state()
-	local convos                 = fast.list_conversations()
+  local state_tbl              = api.get_state()
+  local convos                 = api.list_conversations()
 	local tree_lines             = {}
 	for _, c in ipairs(convos) do
 		local info = state_tbl.conversations[c.id]
@@ -195,7 +225,7 @@ function M.toggle_home_menu()
 			local ln = vim.api.nvim_win_get_cursor(history.win)[1]
 			local sel = convos[ln]
 			if not sel then return end
-			fast.set_current_conversation(sel.id)
+        api.set_current_conversation(sel.id)
 			local conv = state_tbl.conversations[sel.id]
 			if conv then
 				render_conversation_preview(conv, convo.buf, convo.win)
@@ -208,10 +238,10 @@ function M.toggle_home_menu()
 		callback = function()
 			vim.ui.input({ prompt = "New conversation name: " }, function(input_name)
 				if not input_name or input_name:match("^%s*$") then return end
-				local c_id = fast.create_new_conversation()
-				fast.set_current_conversation(c_id)
+          local c_id = api.create_new_conversation()
+          api.set_current_conversation(c_id)
 				-- refresh history list
-				local convos_new = fast.list_conversations()
+          local convos_new = api.list_conversations()
 				local lines = {}
 				for _, c in ipairs(convos_new) do
 					local info = state_tbl.conversations[c.id]
@@ -231,9 +261,9 @@ function M.toggle_home_menu()
 			local short = sel.id:sub(1, 8)
 			vim.ui.select({ "Yes", "No" }, { prompt = string.format("Delete conversation %s?", short) }, function(choice)
 				if choice ~= "Yes" then return end
-				fast.delete_conversation(sel.id)
+          api.delete_conversation(sel.id)
 				-- refresh history list
-				local convos_new = fast.list_conversations()
+          local convos_new = api.list_conversations()
 				local lines = {}
 				for _, c in ipairs(convos_new) do
 					local info = state_tbl.conversations[c.id]
@@ -299,14 +329,14 @@ function M.toggle_home_menu()
 			end
 
 			-- send to agent and append response
-			local c_id = fast.send_text(table.concat(user_lines, "\n"))
-			fast.get_response(c_id, function(reply_text)
-				fast.append_response(c_id, reply_text)
-				vim.schedule(function()
-					if buf_is_valid(convo.buf) and win_is_valid(convo.win) then
-						render_conversation_preview(fast.get_state().conversations[c_id], convo.buf, convo.win)
-					end
-				end)
+        local c_id = api.send_text(table.concat(user_lines, "\n"))
+        api.get_response(c_id, function(reply_text)
+          api.append_to_file(c_id, reply_text)
+          vim.schedule(function()
+            if buf_is_valid(convo.buf) and win_is_valid(convo.win) then
+              render_conversation_preview(api.get_state().conversations[c_id], convo.buf, convo.win)
+            end
+          end)
 			end)
 		end,
 	})
@@ -316,9 +346,7 @@ function M.toggle_home_menu()
 	vim.cmd("startinsert")
 end
 
--- Export internals for testing
-M._create_floating_window = create_floating_window
-M._append_message = append_message
-M._render_conversation_preview = render_conversation_preview
-
-return M
+return {
+  toggle_home_menu = M.toggle_home_menu,
+  setup_ui         = M.setup_ui,
+}
