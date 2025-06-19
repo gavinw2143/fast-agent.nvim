@@ -2,28 +2,29 @@ local render = require("fast_agent.ui.render")
 local M = {
 	win_convos = nil,
 	buf_convos = nil,
-	win_history = nil,
-	buf_history = nil,
+	win_messages = nil,
+	buf_messages = nil,
 	win_input = nil,
 	buf_input = nil,
 }
 
 --- Toggle the FastAgent home pane (conversation list + history + prompt).
 function M.toggle_home_panel()
+	-- This should just check if a single window container structure is valid
 	if M.win_convos and vim.api.nvim_win_is_valid(M.win_convos) then
 		if M.win_input and vim.api.nvim_win_is_valid(M.win_input) then
 			vim.api.nvim_win_close(M.win_input, true)
 		end
-		if M.win_history and vim.api.nvim_win_is_valid(M.win_history) then
-			vim.api.nvim_win_close(M.win_history, true)
+		if M.win_messages and vim.api.nvim_win_is_valid(M.win_messages) then
+			vim.api.nvim_win_close(M.win_messages, true)
 		end
 		if M.win_convos and vim.api.nvim_win_is_valid(M.win_convos) then
 			vim.api.nvim_win_close(M.win_convos, true)
 		end
 		M.win_convos = nil
 		M.buf_convos = nil
-		M.win_history = nil
-		M.buf_history = nil
+		M.win_messages = nil
+		M.buf_messages = nil
 		M.win_input = nil
 		M.buf_input = nil
 		return
@@ -77,14 +78,14 @@ function M.toggle_home_panel()
 		{ noremap = true, silent = true }
 	)
 
-	M.buf_history = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.buf_history })
-	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = M.buf_history })
-	vim.api.nvim_set_option_value("swapfile", false, { buf = M.buf_history })
-	vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf_history })
-	vim.api.nvim_set_option_value("filetype", "markdown", { buf = M.buf_history })
+	M.buf_messages = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_set_option_value("buftype", "nofile", { buf = M.buf_messages })
+	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = M.buf_messages })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = M.buf_messages })
+	vim.api.nvim_set_option_value("modifiable", false, { buf = M.buf_messages })
+	vim.api.nvim_set_option_value("filetype", "markdown", { buf = M.buf_messages })
 
-	M.win_history = vim.api.nvim_open_win(M.buf_history, false, {
+	M.win_messages = vim.api.nvim_open_win(M.buf_messages, false, {
 		relative = "editor",
 		row = 0,
 		col = conv_w,
@@ -142,12 +143,11 @@ function M.toggle_home_panel()
 		{ noremap = true, silent = true }
 	)
 
-	render.refresh_conversation_list(M.buf_convos)
-	render.refresh_message_history(M.buf_history)
+	render.refresh_directory_messages(M.buf_convos)
+	render.refresh_message_messages(M.buf_messages)
 
 	vim.api.nvim_set_current_win(M.win_input)
 	vim.cmd("startinsert")
 end
 
 return M
-

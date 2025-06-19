@@ -1,5 +1,6 @@
 local Path = require("plenary.path")
 local config = require("fast_agent.config")
+local uv = vim.loop
 local utils = require("fast_agent.utils")
 local M = {}
 
@@ -55,6 +56,7 @@ function M.create_new_conversation()
 	state.conversations[c_id] = {
 		name = "Conversation " .. tostring(#vim.tbl_keys(state.conversations) + 1),
 		messages = {},
+		cwd = uv.cwd(),
 		last_updated = timestamp,
 	}
 	state.current = c_id

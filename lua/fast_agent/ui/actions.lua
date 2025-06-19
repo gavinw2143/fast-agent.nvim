@@ -64,13 +64,8 @@ function M.create_conversation()
 end
 
 function M.delete_conversation()
-	if home.buf_convos then
-		local buf_convos = home.buf_convos
-	else
-		return
-	end
 	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
-	local line = vim.api.nvim_buf_get_lines(buf_convos, cursor_line - 1, cursor_line, false)[1] or ""
+	local line = vim.api.nvim_buf_get_lines(home.buf_convos, cursor_line - 1, cursor_line, false)[1] or ""
 
 	if line:match("^%[No") then
 		vim.notify("[fast_agent.nvim] No conversation here to delete.", vim.log.levels.WARN)
@@ -127,7 +122,7 @@ function M.submit_prompt()
 	if buf and buf ~= -1 then
 		lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 	end
-	local input_text = table.concat(lines, "\n")
+	local input_text = table.concat(lines, "\n"):sub(1)
 
 	if input_text == "" then
 		vim.notify(

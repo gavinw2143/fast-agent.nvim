@@ -22,6 +22,59 @@ function M.refresh_conversation_list(bufnr)
 	vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
 end
 
+--- Populate the directory history buffer.
+-- @param bufnr number
+function M.refresh_directory_history(bufnr)
+  local state = fast.get_state()
+  local convs = state.conversations
+  local lines = {}
+  if vim.tbl_isempty(convs) then
+    lines = { "[No history yet]" }
+  else
+    local latest = {}
+    for _, conv in pairs(convs) do
+      if conv.cwd then
+        local prev = latest[conv.cwd]
+        if not prev or conv.last_updated > prev then
+          latest[conv.cwd] = conv.last_updated
+        end
+      end
+    end
+    local entries = {}
+    for cwd, ts in pairs(latest) do
+      table.insert(entries, { cwd = cwd, ts = ts })
+    end
+    table.sort(entries, function(a, b) return a.ts > b.ts end)
+    local basenames = {}
+    for _, e in ipairs(entries) do
+      local name = vim.fn.fnamemodify(e.cwd, ":t")
+      basenames[name] = (basenames[name] or 0) + 1
+    end
+    local win = vim.fn.bufwinid(bufnr)
+    local width = (win ~= -1 and vim.api.nvim_win_get_width(win)) or 80
+    for _, e in ipairs(entries) do
+      local name = vim.fn.fnamemodify(e.cwd, ":t")
+      local disp
+      if basenames[name] == 1 then
+        disp = name .. "/"
+      else
+        local parent = vim.fn.fnamemodify(e.cwd, ":h:t")
+        disp = parent .. "/" .. name .. "/"
+      end
+      if #disp >= 20 then
+        disp = disp:sub(1, 17) .. "..."
+      end
+      local when = os.date("%Y-%m-%d %H:%M", e.ts)
+      local pad = width - #disp - #when
+      if pad < 1 then pad = 1 end
+      table.insert(lines, disp .. string.rep(" ", pad) .. when)
+    end
+  end
+  vim.api.nvim_set_option_value("modifiable", true, { buf = bufnr })
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = bufnr })
+end
+
 --- Populate the message history buffer.
 -- @param bufnr number
 function M.refresh_message_history(bufnr)
