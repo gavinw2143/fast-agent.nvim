@@ -1,0 +1,42 @@
+-- Single-agent:
+-- Elaboration: X -> X+, where X+ includes additional information pertaining to class X
+-- Summary: X -> X-, where X- is compressed information pertaining to class X
+-- Analogy: Z -> R: X x Y, where Z includes disparate topics, and X and Y are analogs in some respect R
+-- Similarity: X, Y -> Z
+-- Disambiguation: X, Y -> Z^c,where Z^c includes the differences between X and Y
+-- Distinction: X[] -> X[], where from a list of examples, a subset with specific attributes may be derived
+-- Exemplification: X[] -> X, where from a list of examples, find the best-fit
+-- 	request clarification from user
+-- Justify: X -> Y, provide reason for a conclusion
+-- Validate: X -> Y, verify consistency and accuracy across perspectives
+-- Rearrange: reorder/rearrange a sequence/set of items, represented as a list, or graph
+-- Focus: choose an aspect of something to focus on relevant to context and perspective
+--
+-- Multi-agent:
+-- Perspectives: Each with different focus based on initial selected details of attention
+-- Focuses: essentially a list of {file, (mark1, mark2), context, relevance}
+-- Explore: generate relevant perspectives for the objective and set focuses
+-- Reconcile: cognitive dissonance (contextually-incompatible inference) -> reevaluate dissonant perspectives
+-- Direct: missing information observed -> consult other focuses
+-- Contextualize: recombine perspectives
+-- Synthesize: fzf or other (maybe vector) search for relevant validation queries
+-- Decouple: Justify and reconcile conceptual dependency disorganization / logical inconsistency
+-- Organize: generate data structures for improved observation
+--
+-- 1. Elaboration on reflexion memory in new context,
+-- 2. Summarize for objectives,
+-- 3. Explore from head for planning,
+-- 4. Execute plan
+-- are running, be ready for additional Explores (children spawn), Reconcile (parent request), Directs (child merge reject), Contextualizes (parent merge accept)
+-- -> can try: building a framework for working with Cypher, revising it as necessary using reasoning
+-- -> can try: principal information caching
+--
+-- Reason: multi-functions, e.g. explore, reconcile, direct, contextualize, synthesize, decouple, plan cannot be taken as actions without it
+-- Validation: queries open for observing can receive information from synthesized focuses
+--
+-- Example use cases:
+-- 	Given a project directory,
+--
+-- 	Given past conversation history, determine the depth of a user's understanding of a concept
+--
+-- Focusing should be handled by reflexion & CoA

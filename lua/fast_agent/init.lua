@@ -4,17 +4,18 @@ local network = require("fast_agent.core.network")
 local utils   = require("fast_agent.core.utils")
 local keymaps = require("fast_agent.ui.keymaps")
 
-local M = {}
+local M       = {}
 
 function M.setup(opts)
-  config.setup(opts)
-  if config.get_user_config().use_default_keymaps then
-    keymaps.install_default_keymaps()
-  end
-  state.ensure_cache_dir()
-  state.load_state()
-  require("fast_agent.ui.window").setup_ui(M)
+	config.setup(opts)
+	if config.get_user_config().use_default_keymaps then
+		keymaps.install_default_keymaps()
+	end
+	state.ensure_cache_dir()
+	state.load_state()
+	require("fast_agent.ui.panels").setup_ui(M)
 end
+
 M.get_user_config = config.get_user_config
 
 
@@ -25,8 +26,8 @@ M.delete_conversation         = state.delete_conversation
 M.get_current_conversation_id = state.get_current_conversation_id
 M.get_state                   = state.get_state
 
-M.send_text      = state.send_text
-M.get_response   = network.get_response
-M.append_to_file = utils.append_to_file
+M.send_text                   = state.send_text
+M.get_response                = network.get_response
+M.append_to_file              = utils.append_to_file
 
 return M
